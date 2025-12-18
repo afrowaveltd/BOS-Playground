@@ -1,109 +1,143 @@
-# BOS Font Glyph Storage Standard (Draft)
+# BOS Font Glyph Storage Standard (Revised)
 
 ## 1. Core Principles
 
-- Each Unicode character is represented by **exactly one file**.
-- The file name is **uniquely derivable** from the Unicode codepoint.
-- The file name is **fully reversible** back to the codepoint.
-- No metadata in file names.
-- No human-readable labels.
-- Pure mechanics.
+- Source text is always **UTF-8**.
+- Glyph identity is derived from **Unicode codepoints**, not storage slots.
+- File names represent **identity only**, never placement or runtime mapping.
+- Slot assignment (e.g. Afwave-ASCII `0x80..0xFF`) is **runtime-only**.
+- Naming is **minimal, reversible, and deterministic**.
+- No metadata in file names beyond identity.
 
 ---
 
-## 2. Directory
+## 2. Directory Structure
 
 ```
 Letters/
 ```
 
-No subdirectories are required in the base variant.
+Optional style or grouping directories MAY be used (e.g. `afw/`, `unicode/`), but are not required by the standard.
 
 ---
 
-## 3. File Name
+## 3. File Naming Rules
 
-### Mandatory Format
+### 3.1 Unicode Glyphs
+
+Unicode glyphs are named **only by their hexadecimal codepoint**, without prefixes or redundant padding.
 
 ```
-U+XXXXXX.ext
+<HEX>.glyph
 ```
 
 Where:
 
-- `U+` is a fixed prefix.
-- `XXXXXX` is a **six-digit hexadecimal Unicode codepoint**.
-- Hexadecimal digits are `0–9` and `A–F` (uppercase only).
-- No shortening, no variability.
-- `.ext` denotes the glyph file format (e.g. `.bmp`, `.bin`).
+- `<HEX>` is the Unicode codepoint in hexadecimal.
+- Uppercase hexadecimal digits (`0–9`, `A–F`) are recommended.
+- **No `U+` prefix**.
+- **No fixed width or leading zero padding**.
+- The name must be directly parseable as a hexadecimal number.
 
-### Examples
+#### Examples
 
 ```
-U+000041.bin   ; 'A'
-U+000159.bin   ; 'ř'
-U+0020AC.bin   ; '€'
-U+01F600.bin   ; 😀
+41.glyph      ; U+0041 'A'
+66.glyph      ; U+0066 'f'
+159.glyph     ; U+0159 'ř'
+20AC.glyph    ; U+20AC '€'
+1F600.glyph   ; U+1F600 😀
 ```
+
+The filename value is the canonical codepoint representation.
 
 ---
 
-## 4. Mapping Rules
+### 3.2 Internal / Afwave-Specific Glyphs
 
-### File Name → Unicode
+Glyphs that do **not** represent Unicode characters (logos, UI icons, symbolic marks) MUST use a leading underscore.
 
 ```
-filename: U+000159.bin
+_<NAME>.glyph
+```
+
+Examples:
+
+```
+_AFW_A.glyph
+_AFW_f.glyph
+_ICON_LOCK.glyph
+_UI_ARROW_LEFT.glyph
+```
+
+Rules:
+
+- Leading underscore (`_`) marks the glyph as **non-Unicode**.
+- These glyphs are resolved by symbolic name, not by codepoint.
+- They are not part of Unicode fallback or transliteration logic.
+
+---
+
+## 4. Reversibility
+
+### Unicode Glyphs
+
+```
+filename: 159.glyph
 → codepoint = 0x0159
 ```
 
-### Unicode → File Name
-
 ```
 codepoint = 0x0159
-→ filename = "U+000159.bin"
+→ filename = "159.glyph"
 ```
 
-Single rule. No exceptions.
+No ambiguity. No normalization step required.
 
 ---
 
 ## 5. Glyph File Format (Minimal Definition)
 
-This standard does not define a detailed graphical format.
+This standard does not mandate a specific binary format.
 
-- The file contains a **bitmap of exactly one glyph**.
-- Resolution and bit depth are defined by context (e.g. 8×16, 1bpp).
-- Content interpretation is the responsibility of the loader.
+Required properties:
 
-Intentionally omitted:
-- no headers with character names,
-- no redundant metadata,
-- semantic meaning is carried **only by the file name**.
+- The file contains **exactly one glyph**.
+- Glyph bitmap layout (e.g. `8×16`, `1bpp`) is defined by the consuming context.
+- One row MAY correspond to one byte (common case).
+
+Explicitly excluded:
+
+- embedded headers with character names,
+- redundant metadata,
+- encoding markers.
+
+Semantic meaning is carried **only by the filename**.
 
 ---
 
 ## 6. Relation to the BOS UTF Pipeline
 
-- UTF-8 decoder → codepoint.
-- Codepoint → file name `U+XXXXXX.*`.
+- UTF-8 input → Unicode codepoint.
+- Codepoint → filename `<HEX>.glyph`.
 - File exists → glyph available.
-- File missing → fallback (transliteration / similar character / ASCII).
+- File missing → fallback strategy (transliteration, replacement, ASCII).
 
-No lookup tables are required at the filesystem level.
+Filesystem lookup requires **no lookup tables** and no normalization.
 
 ---
 
 ## 7. Determinism
 
-- Same character → same file.
-- Same document → same glyph selection.
-- Same font pack → same byte stream.
+- Same codepoint → same filename.
+- Same font pack → same glyph resolution.
+- Same document → identical byte stream output.
 
-This is essential for:
+This property is required for:
+
 - caching,
-- embedded systems,
-- reproducible builds.
+- reproducible builds,
+- embedded and minimal systems.
 
 ---
 
@@ -114,4 +148,4 @@ This is essential for:
 - combining characters,
 - Unicode normalization (NFC/NFD).
 
-These are considered higher-level concerns and are intentionally exclude
+These concerns are intentionally left to higher layers.
